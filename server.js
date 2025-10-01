@@ -52,7 +52,7 @@ app.use("/api", (req, res) => {
 });
 
 
-app.get( ["/" , '/instances' , 'subscribe'], (req, res) => {
+app.get( ["/" , '/instances' , 'subscribe' , 'login' , 'register'], (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
