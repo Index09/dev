@@ -1,6 +1,6 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
-const User = require('./User');
+import { DataTypes } from 'sequelize';  // Fixed: import named export
+import sequelize from '../config/db.js';
+import User from './User.js';  // Fixed: add .js extension
 
 const Subscription = sequelize.define('Subscription', {
   id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
@@ -13,4 +13,4 @@ const Subscription = sequelize.define('Subscription', {
 Subscription.belongsTo(User, { foreignKey: 'userId' });
 User.hasMany(Subscription, { foreignKey: 'userId' });
 
-module.exports = Subscription
+export default Subscription;

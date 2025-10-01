@@ -1,5 +1,5 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+import { DataTypes } from 'sequelize';  // Fixed: import named export
+import sequelize from '../config/db.js'; // Fixed: add .js extension
 
 const User = sequelize.define('User', {
   id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
@@ -8,4 +8,4 @@ const User = sequelize.define('User', {
   createdAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
 }, { tableName: 'users', timestamps: false });
 
-module.exports = User;
+export default User;

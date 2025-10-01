@@ -1,9 +1,8 @@
 // src/auth.js
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const User = require('./models/User');
-require('dotenv').config();
-
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import User from './models/User.js';
+import 'dotenv/config';
 const JWT_SECRET = process.env.JWT_SECRET || 'change_this_secret';
 
 // hash password
@@ -35,4 +34,4 @@ function authMiddleware(req, res, next) {
   }
 }
 
-module.exports = { hashPassword, verifyPassword, signToken, authMiddleware };
+export { hashPassword, verifyPassword, signToken, authMiddleware };

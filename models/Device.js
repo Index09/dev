@@ -1,6 +1,8 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
-const User = require('./User');
+
+import DataTypes from 'sequelize'
+import sequelize from '../config/db.js'
+import User from './User.js'
+
 
 const Device = sequelize.define('Device', {
   id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
@@ -19,4 +21,4 @@ const Device = sequelize.define('Device', {
 Device.belongsTo(User, { foreignKey: 'userId' });
 User.hasOne(Device, { foreignKey: 'userId' });
 
-module.exports = Device;
+export default Device

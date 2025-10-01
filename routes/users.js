@@ -1,11 +1,10 @@
-const express = require('express');
-const { hashPassword, verifyPassword, signToken, authMiddleware } = require('../auth');
-const User = require('../models/User');
-const Subscription = require('../models/Subscription');
-const { Op } = require('sequelize');
+import express from 'express';
+import { hashPassword, verifyPassword, signToken, authMiddleware } from '../auth.js';
+import User from '../models/User.js';
+import Subscription from '../models/Subscription.js';
+import { Op } from 'sequelize';
 
 const router = express.Router();
-
 // Register
 router.post('/register', async (req, res) => {
   try {
@@ -87,4 +86,4 @@ router.get('/subscriptions', authMiddleware, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router

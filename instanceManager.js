@@ -1,16 +1,23 @@
-// src/instanceManager.js
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers } = require('@whiskeysockets/baileys');
-const Qrcode = require('qrcode');
+import { default as makeWASocket, useMultiFileAuthState, Browsers, DisconnectReason } from '@whiskeysockets/baileys';
+import Qrcode from 'qrcode';
+
 // 🚫 Disable ALL Baileys logging
-const { Level } = require('pino');
-const logger = require('pino')({ level: 'silent' }); // Complete silence
+import pkg from 'pino';
+const { pino } = pkg;
+const logger = pino({ level: 'silent' }); // Complete silence
 
-const fs = require('fs-extra');
-const path = require('path');
-const { Sequelize, DataTypes, Op } = require('sequelize');
+import fs from 'fs-extra';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { Sequelize, DataTypes, Op } from 'sequelize';
 
-const Device = require('./models/Device');
-const AUTO_REPLY = require('./handlers/autoReply');
+// For __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Import your local modules
+import Device from './models/Device.js';
+//import AUTO_REPLY from './handlers/autoReply.js';
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 fs.ensureDirSync(DATA_DIR);
@@ -437,9 +444,7 @@ class InstanceManager {
   }
 }
 
-// Singleton with cleanup on exit
+
+
 const instanceManager = new InstanceManager();
-
-
-
-module.exports = instanceManager;
+export default instanceManager;

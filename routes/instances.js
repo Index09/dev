@@ -1,12 +1,17 @@
 // src/routes/instances.js
-const express = require("express");
-const { authMiddleware } = require("../auth");
-const Device = require("../models/Device");
-const Subscription = require("../models/Subscription");
-const instanceManager = require("../instanceManager");
-const { Op } = require("sequelize");
-const fs = require("fs");
-const path = require("path");
+import express from "express";
+import { authMiddleware } from "../auth.js";
+import Device from "../models/Device.js";
+import Subscription from "../models/Subscription.js";
+import instanceManager from "../instanceManager.js";
+import { Op } from "sequelize";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const router = express.Router();
 
 // Create instance for logged user
@@ -248,4 +253,4 @@ router.post("/:id/logout", authMiddleware, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router

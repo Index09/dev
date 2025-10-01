@@ -1,10 +1,10 @@
 // src/routes/subscription.js
-const express = require('express');
-const { Op } = require('sequelize');
-const Subscription = require('../models/Subscription');
-const User = require('../models/User');
-const { authMiddleware } = require('../auth');
-require('dotenv').config();
+import express from 'express';
+import { Op } from 'sequelize';
+import Subscription from '../models/Subscription.js';
+import User from '../models/User.js';
+import { authMiddleware } from '../auth.js';
+import 'dotenv/config';
 
 const router = express.Router();
 
@@ -163,4 +163,4 @@ router.post('/webhook', express.json(), async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router

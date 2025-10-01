@@ -1,5 +1,5 @@
-// src/handlers/autoReply.js
-module.exports = (meta) => {
+
+export def = (meta) => {
   return async (msg, client) => {
     try {
       if (!msg.body) return;

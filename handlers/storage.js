@@ -1,5 +1,5 @@
-const fs = require("fs-extra");
-const path = require("path");
+import fs from 'fs'
+import path  from 'path';
 
 const DATA_DIR = path.resolve(__dirname, "..", "data");
 const META_FILE = path.join(DATA_DIR, "instances.json");

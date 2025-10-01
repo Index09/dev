@@ -1,14 +1,17 @@
-// src/server.js
-require('dotenv').config();
-const express = require('express');
-const sequelize = require('./config/db');
-const path = require('path');
+import 'dotenv/config';
+import express from 'express';
+import sequelize from './config/db.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const userRoutes = require('./routes/users');
-const instanceRoutes = require('./routes/instances');
-const subscriptions = require('./routes/subscription');
-const instanceManager = require('./instanceManager');
-const cors = require("cors");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+import userRoutes from './routes/users.js';
+import instanceRoutes from './routes/instances.js';
+import subscriptions from './routes/subscription.js';
+import instanceManager from './instanceManager.js';
+import cors from 'cors';
 
 const app = express();
 app.use(express.json());
@@ -29,7 +32,9 @@ app.use(cors());
 
 (async () => {
   try {
+   
     const res = await instanceManager.loadAllFromDB();
+
     console.log('Initial load results:', res);
   } catch (err) {
     console.error('Error loading instances:', err);
