@@ -1,0 +1,10 @@
+{
+  "instances": {
+    "client1": {
+      "id": "client1",
+      "autoReply": "Hello 👋 I am an auto-reply bot!",
+      "status": "ready",
+      "createdAt": "2025-09-29T15:49:58.224Z"
+    }
+  }
+}

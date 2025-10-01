@@ -1,0 +1,27 @@
+{
+  "name": "new-folder-(4)",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@whiskeysockets/baileys": "^7.0.0-rc.4",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "fs-extra": "^11.3.2",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.15.1",
+    "nodemon": "^3.1.10",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "sequelize": "^6.37.7",
+    "whatsapp-web.js": "^1.34.1"
+  }
+}
