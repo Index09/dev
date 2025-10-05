@@ -6,3 +6,6 @@ yarn-error.log*
 
 sessions/
 /sessions
+
+/data
+data
