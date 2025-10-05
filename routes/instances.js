@@ -8,6 +8,8 @@ import { Op } from "sequelize";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from 'url';
+import { whatsappSafeMiddleware } from '../middleware/safeMessageMiddleware.js'
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -160,7 +162,7 @@ router.get("/:instanceId/qr", authMiddleware, async (req, res) => {
   }
 });
 // Send message
-router.post("/send", authMiddleware, async (req, res) => {
+router.post("/send", authMiddleware, whatsappSafeMiddleware ,async (req, res) => {
   try {
     const userId = req.user.id;
     const { to, body } = req.body;

@@ -10,12 +10,25 @@ const __dirname = path.dirname(__filename);
 import userRoutes from './routes/users.js';
 import instanceRoutes from './routes/instances.js';
 import subscriptions from './routes/subscription.js';
+import adminRoutes from './routes/admin.js';
 import instanceManager from './instanceManager.js';
 import cors from 'cors';
 
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+app.get( '/', (req, res) => {
+  res.sendFile(path.join(__dirname, "public/landing", "index.html"));
+});
+
+app.use('/assets', express.static('public'))
+app.use(express.static(path.join(__dirname, "public")));
+app.get( ['/dashboard', '/instances' , '/subscribe' , '/login' , '/register' , '/subscribe'], (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+
 
 // sync DB
 (async () => {
@@ -32,9 +45,7 @@ app.use(cors());
 
 (async () => {
   try {
-   
     const res = await instanceManager.loadAllFromDB();
-
     console.log('Initial load results:', res);
   } catch (err) {
     console.error('Error loading instances:', err);
@@ -45,18 +56,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/instances', instanceRoutes);
 app.use('/api/subscriptions', subscriptions);
 
-app.use(express.static(path.join(__dirname, "public")));
 
-app.use("/api", (req, res) => {
-  res.status(404).json({ error: "API route not found" });
-});
-
-
-app.get( ["/" , '/instances' , 'subscribe' , 'login' , 'register'], (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-
+app.use('/api/admin', adminRoutes);
 
 
 

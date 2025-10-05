@@ -4,6 +4,7 @@ import Qrcode from 'qrcode';
 // 🚫 Disable ALL Baileys logging
 import pkg from 'pino';
 const { pino } = pkg;
+
 const logger = pino({ level: 'silent' }); // Complete silence
 
 import fs from 'fs-extra';
@@ -22,19 +23,16 @@ import Device from './models/Device.js';
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 fs.ensureDirSync(DATA_DIR);
 
-// Optimized tunables - can be more aggressive with Baileys
 const CONCURRENCY = 5; // Increased since Baileys is lightweight
-const START_STAGGER_MS = 1000; // Reduced stagger
-const READY_TIMEOUT_MS = 30000; // Normal timeout
-const MAX_RETRIES = 4;
+const START_STAGGER_MS = 4000; // Reduced stagger
+const READY_TIMEOUT_MS = 600000;
+const MAX_RETRIES = 3;
 
 class InstanceManager {
   constructor() {
     this.clients = new Map(); // instanceId -> { socket, meta, authState }
     this.retryCounts = new Map();
     this.loading = false;
-    
-    // Memory monitoring - Baileys uses much less memory
     this.memoryStats = {
       lastCleanup: Date.now(),
       cleanupInterval: 60000,
@@ -43,11 +41,8 @@ class InstanceManager {
     
     this.startMemoryMonitor();
   }
-
-  // 🚀 Start memory monitoring
   startMemoryMonitor() {
     if (this.memoryInterval) return;
-    
     this.memoryInterval = setInterval(() => {
       const memory = process.memoryUsage();
       const heapUsedMB = Math.round(memory.heapUsed / 1024 / 1024);
@@ -55,21 +50,15 @@ class InstanceManager {
     }, 30000);
   }
 
-
-
-  // 🚀 Safe destroy without throwing errors
   async safeDestroy(instanceId) {
     const rec = this.clients.get(instanceId);
     if (rec && rec.socket) {
       try {
-        // Baileys doesn't have explicit destroy, just remove listeners
         rec.socket.ev.removeAllListeners();
-        // Close the connection if it exists
         if (rec.socket.ws && rec.socket.ws.readyState === 1) {
           rec.socket.ws.close();
         }
       } catch (e) {
-        // Silent fail
       }
     }
     this.clients.delete(instanceId);
@@ -92,7 +81,6 @@ class InstanceManager {
     });
   }
 
-  // 🚀 Optimized event binding with memory considerations
   bindCommonEvents(socket, instanceId, meta) {
     // Track last activity
     const updateActivity = () => {
@@ -308,7 +296,7 @@ class InstanceManager {
           }
 
           // Small delay between instances in same batch
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       };
 
@@ -410,7 +398,6 @@ class InstanceManager {
     return rec ? rec.qr : null;
   }
 
-  // 🚀 Send message method (equivalent to client.sendMessage)
   async sendMessage(instanceId, jid, content, options = {}) {
     const socket = this.getClient(instanceId);
     if (!socket) throw new Error('Instance not found or not ready');
@@ -418,26 +405,17 @@ class InstanceManager {
     return await socket.sendMessage(jid, content, options);
   }
 
-  // 🚀 Get all chats
-  async getChats(instanceId) {
-    const socket = this.getClient(instanceId);
-    if (!socket) throw new Error('Instance not found or not ready');
-    
-    return await socket.fetchBlocklist();
-  }
 
   // 🚀 Cleanup on destroy
   async destroy() {
     if (this.memoryInterval) {
       clearInterval(this.memoryInterval);
     }
-    
     // Destroy all clients
     const destroyPromises = [];
     for (const [instanceId] of this.clients.entries()) {
       destroyPromises.push(this.safeDestroy(instanceId));
     }
-    
     await Promise.allSettled(destroyPromises);
     this.clients.clear();
     this.retryCounts.clear();
