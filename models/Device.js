@@ -22,3 +22,4 @@ Device.belongsTo(User, { foreignKey: 'userId' });
 User.hasOne(Device, { foreignKey: 'userId' });
 
 export default Device
+
