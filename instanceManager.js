@@ -379,7 +379,7 @@ class InstanceManager {
     try {
      return await socket.sendMessage(jid, content, options);
     }catch(error){
-      this.scheduleRetry(instanceId)
+      this._initSingle(instanceId)
     }
   }
 
