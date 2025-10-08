@@ -1,31 +1,31 @@
-import { default as makeWASocket, useMultiFileAuthState, Browsers, DisconnectReason } from '@whiskeysockets/baileys';
-import Qrcode from 'qrcode';
+import {
+  default as makeWASocket,
+  useMultiFileAuthState,
+  Browsers,
+  DisconnectReason,
+} from "@whiskeysockets/baileys";
+import Qrcode from "qrcode";
 
 // 🚫 Disable ALL Baileys logging
-import pkg from 'pino';
+import pkg from "pino";
 const { pino } = pkg;
 
-const logger = pino({ level: 'silent' }); // Complete silence
+const logger = pino({ level: "silent" }); // Complete silence
 
-import fs from 'fs-extra';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { Sequelize, DataTypes, Op } from 'sequelize';
+import fs from "fs-extra";
+import path from "path";
 
-// For __dirname equivalent in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import {  Op } from "sequelize";
 
-// Import your local modules
-import Device from './models/Device.js';
-//import AUTO_REPLY from './handlers/autoReply.js';
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
-fs.ensureDirSync(DATA_DIR);
+import Device from "./models/Device.js";
+import AUTO_REPLY from './handlers/autoReply.js';
 
-const CONCURRENCY = 5; // Increased since Baileys is lightweight
-const START_STAGGER_MS = 4000; // Reduced stagger
-const READY_TIMEOUT_MS = 600000;
+
+
+const CONCURRENCY = 5; 
+const START_STAGGER_MS = 3000; 
+const READY_TIMEOUT_MS = 60000;
 const MAX_RETRIES = 3;
 
 class InstanceManager {
@@ -38,18 +38,7 @@ class InstanceManager {
       cleanupInterval: 60000,
       maxHeapThreshold: 500 * 1024 * 1024, // Increased to 500MB since Baileys is efficient
     };
-    
-    this.startMemoryMonitor();
   }
-  startMemoryMonitor() {
-    if (this.memoryInterval) return;
-    this.memoryInterval = setInterval(() => {
-      const memory = process.memoryUsage();
-      const heapUsedMB = Math.round(memory.heapUsed / 1024 / 1024);
-      console.log(`memory usage: ${heapUsedMB}MB, Clients: ${this.clients.size}`);
-    }, 30000);
-  }
-
   async safeDestroy(instanceId) {
     const rec = this.clients.get(instanceId);
     if (rec && rec.socket) {
@@ -58,8 +47,7 @@ class InstanceManager {
         if (rec.socket.ws && rec.socket.ws.readyState === 1) {
           rec.socket.ws.close();
         }
-      } catch (e) {
-      }
+      } catch (e) {}
     }
     this.clients.delete(instanceId);
     this.retryCounts.delete(instanceId);
@@ -69,7 +57,7 @@ class InstanceManager {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         emitter.off(event, handler);
-        reject(new Error('timeout'));
+        reject(new Error("timeout"));
       }, timeoutMs);
 
       const handler = (...args) => {
@@ -82,17 +70,12 @@ class InstanceManager {
   }
 
   bindCommonEvents(socket, instanceId, meta) {
-    // Track last activity
-    const updateActivity = () => {
-      meta.lastActivity = Date.now();
-    };
 
-    // QR handler
-    socket.ev.on('connection.update', async (update) => {
-      updateActivity();
-      
+
+
+    socket.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect, qr } = update;
-      
+
       if (qr) {
         console.log(`[${instanceId}] QR generated`);
         const rec = this.clients.get(instanceId);
@@ -101,56 +84,77 @@ class InstanceManager {
           try {
             rec.qrBase64 = await Qrcode.toDataURL(qr);
           } catch (err) {
-            console.error('QR base64 error:', err);
+            console.error("QR base64 error:", err);
           }
         }
       }
 
-      if (connection === 'open') {
+      if (connection === "open") {
         console.log(`[${instanceId}] connected and ready`);
-        meta.status = 'ready';
-        this.updateDeviceStatus(instanceId, 'ready');
-        
-        // Auto-reply can be enabled here
-        // socket.ev.on('messages.upsert', (m) => AUTO_REPLY(meta)(m, socket));
+        meta.status = "ready";
+        this.updateDeviceStatus(instanceId, "ready");
+
+        let phoneNumber = null;
+
+        if (socket.user?.id) {
+          phoneNumber = socket.user.id.split(":")[0];
+        } else if (socket.state?.legacy?.user?.id) {
+          phoneNumber = socket.state.legacy.user.id.split(":")[0];
+        }
+        if (phoneNumber) {
+          await Device.update(
+            { linkedNumber: phoneNumber },
+            { where: { instanceId } }
+          );
+          meta.linkedNumber = phoneNumber;
+          console.log(`[${instanceId}] Linked phone number: ${phoneNumber}`);
+        } else {
+          console.warn(
+            `[${instanceId}] Could not extract phone number from connection`
+          );
+        }
+
+
+      //  socket.ev.on('messages.upsert', (m) => AUTO_REPLY(meta)(m, socket));
+       // socket.ev.on('messages.upsert', (m) => console.log(m));
       }
 
-      if (connection === 'close') {
-        const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-        console.log(`[${instanceId}] connection closed due to ${lastDisconnect?.error?.message || 'unknown reason'}, reconnecting: ${shouldReconnect}`);
-        
+      if (connection === "close") {
+        const shouldReconnect =
+          lastDisconnect?.error?.output?.statusCode !==
+          DisconnectReason.loggedOut;
+        console.log(
+          `[${instanceId}] connection closed due to ${
+            lastDisconnect?.error?.message || "unknown reason"
+          }, reconnecting: ${shouldReconnect}`
+        );
+
         if (shouldReconnect) {
-          meta.status = 'disconnected';
-          this.updateDeviceStatus(instanceId, 'disconnected');
-          this.scheduleRetry(instanceId);
+          meta.status = "disconnected";
+          this.updateDeviceStatus(instanceId, "disconnected");
+        //  this.scheduleRetry(instanceId);
         } else {
-          meta.status = 'logged_out';
-          this.updateDeviceStatus(instanceId, 'logged_out');
+          meta.status = "logged_out";
+          this.updateDeviceStatus(instanceId, "logged_out");
         }
       }
 
-      if (connection === 'connecting') {
+      if (connection === "connecting") {
         console.log(`[${instanceId}] connecting...`);
-        meta.status = 'connecting';
-        this.updateDeviceStatus(instanceId, 'connecting');
+        meta.status = "connecting";
+        this.updateDeviceStatus(instanceId, "connecting");
       }
     });
 
     // Error handling
-    socket.ev.on('connection.update', (update) => {
+    socket.ev.on("connection.update", (update) => {
       if (update.error) {
         console.error(`[${instanceId}] connection error:`, update.error);
       }
     });
 
-    // Credentials updated
-    socket.ev.on('creds.update', () => {
-      // Credentials are automatically saved by useMultiFileAuthState
-      updateActivity();
-    });
   }
 
-  // 🚀 Batch database updates to reduce I/O
   async updateDeviceStatus(instanceId, status) {
     try {
       await Device.update({ status }, { where: { instanceId } });
@@ -158,124 +162,129 @@ class InstanceManager {
       console.error(`DB update failed for ${instanceId}:`, error);
     }
   }
-
   scheduleRetry(instanceId) {
     const attempts = (this.retryCounts.get(instanceId) || 0) + 1;
-    
+    if (attempts > MAX_RETRIES) {
+      console.warn(`[${instanceId}] reached max retries (${MAX_RETRIES}), giving up.`);
+      Device.update({ status: 'failed' }, { where: { instanceId } }).catch(console.error);
+      return;
+    }
     this.retryCounts.set(instanceId, attempts);
-    const delay = Math.min(45000, Math.pow(2, attempts) * 1000) + Math.floor(Math.random() * 2000);
-    
-    console.log(`[${instanceId}] scheduling retry #${attempts} in ${Math.round(delay / 1000)}s`);
-    
+    const delay = Math.min(60_000, Math.pow(2, attempts) * 1000) + Math.floor(Math.random() * 3000); // cap 60s + jitter
+    console.log(`[${instanceId}] scheduling retry #${attempts} in ${Math.round(delay/1000)}s`);
     setTimeout(async () => {
       try {
+        const rec = this.clients.get(instanceId);
+        if (rec && rec.client) {
+          try { await rec.client.destroy(); } catch(e){}
+          this.clients.delete(instanceId);
+        }
         await this._initSingle(instanceId);
       } catch (err) {
-        console.error(`[${instanceId}] retry init failed:`, err.message);
+        console.error(`[${instanceId}] retry init failed:`, err.message || err);
         this.scheduleRetry(instanceId);
       }
     }, delay);
   }
 
-  // 🚀 Optimized single instance initialization
+
   async _initSingle(instanceId) {
     if (this.clients.has(instanceId)) {
       const existing = this.clients.get(instanceId);
-      // Check if socket is still connected
       if (existing.socket && !existing.socket.user) {
-        // Socket exists but not authenticated, safe to recreate
         await this.safeDestroy(instanceId);
       } else {
         return existing.meta;
       }
     }
-
-    // Use lean database query
-    const dbDevice = await Device.findOne({ 
+    const dbDevice = await Device.findOne({
       where: { instanceId },
-      attributes: ['id', 'instanceId', 'status', 'meta']
+      attributes: ["id", "instanceId", "status", "meta"],
     });
 
     const meta = {
       id: instanceId,
       autoReply: dbDevice?.meta?.autoReply || null,
-      status: 'initializing',
+      status: "initializing",
       lastActivity: Date.now(),
-      createdAt: Date.now()
+      createdAt: Date.now(),
     };
 
     try {
-      // 🚀 Baileys authentication setup
-      const { state, saveCreds } = await useMultiFileAuthState(`sessions/${instanceId}`);
-      
-      // 🚀 Create Baileys socket
+      const { state, saveCreds } = await useMultiFileAuthState(
+        `sessions/${instanceId}`
+      );
+
       const socket = makeWASocket({
         auth: state,
-        printQRInTerminal: false, // We handle QR ourselves
+        printQRInTerminal: false,
         logger: logger,
-        browser: Browsers.ubuntu('Chrome'), // Mimic browser
-        markOnlineOnConnect: true, 
-        generateHighQualityLinkPreview: false, // Save resources
-        syncFullHistory: false, // Save resources
-        defaultQueryTimeoutMs: 60000, // Longer timeout
+        browser: Browsers.ubuntu("Chrome"), 
+        markOnlineOnConnect: true,
+        generateHighQualityLinkPreview: false, 
+        syncFullHistory: false,
+        defaultQueryTimeoutMs: 60000, 
       });
+      socket.ev.on("creds.update", saveCreds);
 
-      // Save credentials when updated
-      socket.ev.on('creds.update', saveCreds);
-
-      this.clients.set(instanceId, { socket, meta, authState: { state, saveCreds } });
+      this.clients.set(instanceId, {
+        socket,
+        meta,
+        authState: { state, saveCreds },
+      });
       this.bindCommonEvents(socket, instanceId, meta);
 
-      await this.updateDeviceStatus(instanceId, 'initializing');
-
-      // 🚀 Wait for connection to open with timeout
+      await this.updateDeviceStatus(instanceId, "initializing");
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          socket.ev.off('connection.update', connectionHandler);
-          reject(new Error('Connection timeout'));
+          socket.ev.off("connection.update", connectionHandler);
+          reject(new Error("Connection timeout"));
         }, READY_TIMEOUT_MS);
 
         const connectionHandler = (update) => {
-          if (update.connection === 'open') {
+          if (update.connection === "open") {
             clearTimeout(timeout);
-            socket.ev.off('connection.update', connectionHandler);
+            socket.ev.off("connection.update", connectionHandler);
             resolve();
-          } else if (update.connection === 'close') {
+          } else if (update.connection === "close") {
             clearTimeout(timeout);
-            socket.ev.off('connection.update', connectionHandler);
-            reject(new Error(`Connection closed: ${update.lastDisconnect?.error?.message || 'unknown'}`));
+            socket.ev.off("connection.update", connectionHandler);
+            reject(
+              new Error(
+                `Connection closed: ${
+                  update.lastDisconnect?.error?.message || "unknown"
+                }`
+              )
+            );
           }
         };
-
-        socket.ev.on('connection.update', connectionHandler);
+        socket.ev.on("connection.update", connectionHandler);
       });
 
       this.retryCounts.delete(instanceId);
       return meta;
     } catch (err) {
       console.warn(`[${instanceId}] init failed:`, err.message);
-      meta.status = 'disconnected';
-      await this.updateDeviceStatus(instanceId, 'disconnected');
+      meta.status = "disconnected";
+      await this.updateDeviceStatus(instanceId, "disconnected");
       this.scheduleRetry(instanceId);
       throw err;
     }
   }
 
-  // 🚀 Optimized batch loading with better memory management
   async loadAllFromDB() {
     if (this.loading) return;
     this.loading = true;
-
     try {
       const devices = await Device.findAll({
-        where: { status: { [Op.not]: 'destroyed' } },
-        attributes: ['instanceId'],
-        raw: true
+        where: { status: { [Op.not]: "destroyed" } },
+        attributes: ["instanceId"],
+        raw: true,
       });
 
       console.log(`InstanceManager: found ${devices.length} devices to load.`);
 
-      const instanceIds = devices.map(d => d.instanceId);
+      const instanceIds = devices.map((d) => d.instanceId);
       const results = [];
       let currentIndex = 0;
 
@@ -283,9 +292,9 @@ class InstanceManager {
         while (currentIndex < instanceIds.length) {
           const instanceId = instanceIds[currentIndex++];
           const stagger = (currentIndex - 1) * START_STAGGER_MS;
-          
+
           if (stagger > 0) {
-            await new Promise(resolve => setTimeout(resolve, stagger));
+            await new Promise((resolve) => setTimeout(resolve, stagger));
           }
 
           try {
@@ -295,8 +304,7 @@ class InstanceManager {
             results.push({ instanceId, ok: false, error: err.message });
           }
 
-          // Small delay between instances in same batch
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       };
 
@@ -304,10 +312,9 @@ class InstanceManager {
       for (let i = 0; i < CONCURRENCY; i++) {
         workers.push(processBatch());
       }
-      
+
       await Promise.all(workers);
       return results;
-
     } finally {
       this.loading = false;
     }
@@ -318,35 +325,31 @@ class InstanceManager {
     return rec ? rec.socket : null;
   }
 
-  // 🚀 Optimized destruction
   async destroyInstance(instanceId) {
     await this.safeDestroy(instanceId);
-    
+
     // Cleanup session files
-    const sessionDir = path.resolve(process.cwd(), 'sessions', instanceId);
+    const sessionDir = path.resolve(process.cwd(), "sessions", instanceId);
     await fs.remove(sessionDir).catch(() => {});
-    
-    await this.updateDeviceStatus(instanceId, 'destroyed');
+
+    await this.updateDeviceStatus(instanceId, "destroyed");
   }
 
   async logoutInstance(instanceId) {
     const rec = this.clients.get(instanceId);
-    if (!rec || !rec.socket) throw new Error('Instance not found');
+    if (!rec || !rec.socket) throw new Error("Instance not found");
 
     try {
-      // Baileys logout - close connection and cleanup
       rec.socket.ev.removeAllListeners();
       if (rec.socket.ws && rec.socket.ws.readyState === 1) {
         rec.socket.ws.close();
       }
-      
-      this.clients.delete(instanceId);
-      
-      // Cleanup session files
-      const sessionDir = path.resolve(process.cwd(), 'sessions', instanceId);
+
+      this.clients.delete(instanceId);  
+      const sessionDir = path.resolve(process.cwd(), "sessions", instanceId);
       await fs.remove(sessionDir).catch(() => {});
 
-      await this.updateDeviceStatus(instanceId, 'logged_out');
+      await this.updateDeviceStatus(instanceId, "logged_out");
       console.log(`[${instanceId}] logged out successfully`);
       return { success: true };
     } catch (err) {
@@ -368,15 +371,15 @@ class InstanceManager {
       return this.clients.get(instanceId).meta;
     }
 
-    let device = await Device.findOne({ 
+    let device = await Device.findOne({
       where: { instanceId },
-      attributes: ['id', 'instanceId', 'status', 'meta']
+      attributes: ["id", "instanceId", "status", "meta"],
     });
-    
+
     if (!device) {
       device = await Device.create({
         instanceId,
-        status: 'initializing',
+        status: "initializing",
         meta: options,
       });
     }
@@ -400,11 +403,10 @@ class InstanceManager {
 
   async sendMessage(instanceId, jid, content, options = {}) {
     const socket = this.getClient(instanceId);
-    if (!socket) throw new Error('Instance not found or not ready');
-    
+    if (!socket) throw new Error("Instance not found or not ready");
+
     return await socket.sendMessage(jid, content, options);
   }
-
 
   // 🚀 Cleanup on destroy
   async destroy() {
@@ -421,8 +423,6 @@ class InstanceManager {
     this.retryCounts.clear();
   }
 }
-
-
 
 const instanceManager = new InstanceManager();
 export default instanceManager;

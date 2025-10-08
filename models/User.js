@@ -6,6 +6,6 @@ const User = sequelize.define('User', {
   email: { type: DataTypes.STRING(200), allowNull: false, unique: true },
   passwordHash: { type: DataTypes.STRING(200), allowNull: false },
   createdAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
-}, { tableName: 'users', timestamps: false });
+}, { tableName: 'users' });
 
 export default User;

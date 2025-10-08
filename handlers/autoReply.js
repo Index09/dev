@@ -1,5 +1,5 @@
 
-export def = (meta) => {
+const AUTO_REPLY = (meta) => {
   return async (msg, client) => {
     try {
       if (!msg.body) return;
@@ -16,3 +16,5 @@ export def = (meta) => {
     }
   };
 };
+
+export default AUTO_REPLY

@@ -10,11 +10,9 @@ router.post('/register', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'email and password required' });
-
     // Basic email check
     const exists = await User.findOne({ where: { email } });
     if (exists) return res.status(400).json({ error: 'Email already registered' });
-
     const passwordHash = await hashPassword(password);
     const user = await User.create({ email, passwordHash });
 

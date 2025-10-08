@@ -8,16 +8,11 @@ import 'dotenv/config';
 
 const router = express.Router();
 
-/**
- * POST /subscribe
- * Create a 1-month subscription for the authenticated user.
- * (This is a simple flow without payment integration.)
- */
+
 router.post('/subscribe', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Optionally: reject if user already has an active subscription (or allow stacking)
     const now = new Date();
     const existing = await Subscription.findOne({
       where: {
@@ -38,14 +33,12 @@ router.post('/subscribe', authMiddleware, async (req, res) => {
     const startAt = new Date();
     const endAt = new Date(startAt);
     endAt.setMonth(endAt.getMonth() + 1); // add 1 month
-
     const sub = await Subscription.create({
       userId,
       startAt,
       endAt,
       status: 'active'
     });
-
     return res.json({ success: true, subscription: sub });
   } catch (err) {
     console.error('POST /subscribe error:', err);
@@ -53,10 +46,7 @@ router.post('/subscribe', authMiddleware, async (req, res) => {
   }
 });
 
-/**
- * GET /status
- * Returns current subscription status for the authenticated user.
- */
+
 router.get('/status', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -89,11 +79,6 @@ router.get('/status', authMiddleware, async (req, res) => {
     return res.status(500).json({ error: 'Server error' });
   }
 });
-
-/**
- * POST /cancel
- * Cancel the active subscription for the authenticated user.
- */
 router.post('/cancel', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -120,47 +105,5 @@ router.post('/cancel', authMiddleware, async (req, res) => {
   }
 });
 
-/**
- * POST /webhook
- * Example payment gateway webhook handler that creates a subscription after successful payment.
- * Expects JSON body: { userId: <number>, months: <number> }
- * Protect with WEBHOOK_SECRET header (optional): x-webhook-secret: <WEBHOOK_SECRET>
- */
-router.post('/webhook', express.json(), async (req, res) => {
-  try {
-    const webhookSecret = process.env.WEBHOOK_SECRET;
-    if (webhookSecret) {
-      const headerSecret = req.headers['x-webhook-secret'];
-      if (!headerSecret || headerSecret !== webhookSecret) {
-        return res.status(403).json({ error: 'Invalid webhook secret' });
-      }
-    }
-
-    const { userId, months = 1 } = req.body;
-    if (!userId) return res.status(400).json({ error: 'userId required' });
-
-    // ensure user exists
-    const user = await User.findByPk(userId);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    // Create subscription starting today for `months` months
-    const startAt = new Date();
-    const endAt = new Date(startAt);
-    endAt.setMonth(endAt.getMonth() + Number(months));
-
-    const sub = await Subscription.create({
-      userId,
-      startAt,
-      endAt,
-      status: 'active'
-    });
-
-    // respond quickly to the payment gateway (it may expect 200)
-    return res.json({ success: true, subscription: sub });
-  } catch (err) {
-    console.error('POST /webhook error:', err);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
 
 export default router

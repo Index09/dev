@@ -8,7 +8,7 @@ const Subscription = sequelize.define('Subscription', {
   startAt: { type: DataTypes.DATE, allowNull: false },
   endAt: { type: DataTypes.DATE, allowNull: false },
   status: { type: DataTypes.ENUM('active', 'expired', 'cancelled'), defaultValue: 'active' }
-}, { tableName: 'subscriptions', timestamps: false });
+}, { tableName: 'subscriptions' });
 
 Subscription.belongsTo(User, { foreignKey: 'userId' });
 User.hasMany(Subscription, { foreignKey: 'userId' });
