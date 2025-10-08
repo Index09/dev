@@ -25,8 +25,8 @@ import AUTO_REPLY from './handlers/autoReply.js';
 
 const CONCURRENCY = 5; 
 const START_STAGGER_MS = 3000; 
-const READY_TIMEOUT_MS = 60000;
-const MAX_RETRIES = 3;
+const READY_TIMEOUT_MS = 30000;
+const MAX_RETRIES = 4;
 
 class InstanceManager {
   constructor() {
@@ -160,7 +160,7 @@ class InstanceManager {
         await this._initSingle(instanceId);
       } catch (err) {
         console.error(`[${instanceId}] retry init failed:`, err.message || err);
-      //  this.scheduleRetry(instanceId);
+        
       }
     }, delay);
   }
