@@ -376,7 +376,11 @@ class InstanceManager {
     const socket = this.getClient(instanceId);
     if (!socket) throw new Error("Instance not found or not ready");
 
-    return await socket.sendMessage(jid, content, options);
+    try {
+     return await socket.sendMessage(jid, content, options);
+    }catch(error){
+      this.scheduleRetry(instanceId)
+    }
   }
 
   // 🚀 Cleanup on destroy
