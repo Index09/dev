@@ -100,7 +100,7 @@ router.get("/:instanceId/qr", authMiddleware, async (req, res) => {
       console.log(instanceId);
 
       // Ensure instance exists - this will generate a new QR if needed
-      const meta = await instanceManager.ensureInstance(instanceId);
+      await instanceManager.ensureInstance(instanceId);
 
       // Get the QR again after ensuring instance
       qr = instanceManager.getQR(instanceId);

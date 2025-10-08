@@ -53,29 +53,11 @@ class InstanceManager {
     this.retryCounts.delete(instanceId);
   }
 
-  onceWithTimeout(emitter, event, timeoutMs) {
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        emitter.off(event, handler);
-        reject(new Error("timeout"));
-      }, timeoutMs);
 
-      const handler = (...args) => {
-        clearTimeout(timer);
-        resolve(args);
-      };
-
-      emitter.on(event, handler);
-    });
-  }
 
   bindCommonEvents(socket, instanceId, meta) {
-
-
-
     socket.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect, qr } = update;
-
       if (qr) {
         console.log(`[${instanceId}] QR generated`);
         const rec = this.clients.get(instanceId);
@@ -113,10 +95,6 @@ class InstanceManager {
             `[${instanceId}] Could not extract phone number from connection`
           );
         }
-
-
-      //  socket.ev.on('messages.upsert', (m) => AUTO_REPLY(meta)(m, socket));
-       // socket.ev.on('messages.upsert', (m) => console.log(m));
       }
 
       if (connection === "close") {
@@ -182,7 +160,7 @@ class InstanceManager {
         await this._initSingle(instanceId);
       } catch (err) {
         console.error(`[${instanceId}] retry init failed:`, err.message || err);
-        this.scheduleRetry(instanceId);
+      //  this.scheduleRetry(instanceId);
       }
     }, delay);
   }
@@ -376,13 +354,6 @@ class InstanceManager {
       attributes: ["id", "instanceId", "status", "meta"],
     });
 
-    if (!device) {
-      device = await Device.create({
-        instanceId,
-        status: "initializing",
-        meta: options,
-      });
-    }
 
     const meta = await this._initSingle(instanceId);
 
