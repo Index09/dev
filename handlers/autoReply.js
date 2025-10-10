@@ -5,12 +5,14 @@ import  Subscription  from "../models/Subscription.js";
 const MAKE_WEBHOOK_CALL = async(meta) => {
   const {body, instanceId , phone } = meta;
     try {
-        
+       console.log(phone) 
       if(!body) return;
-      const subscription = await Subscription.findOne({
-        where: { userId: instanceId.split('_')[1], plan_type: "open" },
-      });
+      const subscription = await Subscription.findOne(
+       { userId: instanceId.split('_')[1], plan_type: "open" },
+    );
+      console.log(subscription.webhookUrl)
       if (subscription && subscription.webhookUrl) {
+        console.log('before adding')
         await webhookQueue.add("sendWebhook", {
           url: subscription.webhookUrl ,
           payload: {

@@ -8,17 +8,14 @@ const connection = new Redis({
   maxRetriesPerRequest: null, 
   enableReadyCheck: false      
 });
-
 new Worker(
   'webhookQueue',
   async (job) => {
     const { url, payload } = job.data;
     try {
-        console.log(url)
       await axios.post(url, payload);
-      console.log(`✅ Webhook sent to ${url}`);
     } catch (err) {
-      console.error(`❌ Webhook failed: ${url}`, err.message);
+      console.error(`Webhook failed: ${url}`, err.message);
     }
   },
   { connection }

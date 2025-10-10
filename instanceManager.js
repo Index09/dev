@@ -134,7 +134,7 @@ class InstanceManager {
           const remoteJid = msg.key.remoteJid;
           const phone = remoteJid.replace("@s.whatsapp.net", "");
           const body = msg.message?.conversation || null;
-
+        
           MAKE_WEBHOOK_CALL({ body, phone, instanceId });
         }
       } catch (err) {
