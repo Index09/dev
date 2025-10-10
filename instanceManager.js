@@ -68,6 +68,7 @@ class InstanceManager {
       if (connection === "open") {
         console.log(`[${instanceId}] connected and ready`);
         meta.status = "ready";
+
         this.updateDeviceStatus(instanceId, "ready");
 
         let phoneNumber = null;
@@ -96,16 +97,21 @@ class InstanceManager {
             await devices[1].destroy();
           }
         }
+
+        setInterval(() => {
+          socket?.sendPresenceUpdate("available");
+        }, 20000);
       }
 
       if (connection === "close")
         (update) => {
           const { connection, lastDisconnect } = update;
           if (connection === "close") {
-            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== 401; 
+            const shouldReconnect =
+              lastDisconnect?.error?.output?.statusCode !== 401;
             if (shouldReconnect) {
               console.log("🔁 Reconnecting...");
-              this._initSingle(instanceId); 
+              this._initSingle(instanceId);
             } else {
               console.log("🔒 Logged out — need to re-authenticate");
             }
