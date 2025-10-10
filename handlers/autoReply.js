@@ -1,20 +1,28 @@
+import { webhookQueue } from "../queues/webhookQueue.js";
+import  Subscription  from "../models/Subscription.js";
 
-const AUTO_REPLY = (meta) => {
-  return async (msg, client) => {
+
+const MAKE_WEBHOOK_CALL = async(meta) => {
+  const {body, instanceId , phone } = meta;
     try {
-      if (!msg.body) return;
-      if (msg.from === 'status@broadcast') return;
-      const body = msg.body.toLowerCase().trim();
-      if (body === 'hello') {
-        await msg.reply(`👋 Hi from ${meta.id}`);
-        return;
+        
+      if(!body) return;
+      const subscription = await Subscription.findOne({
+        where: { userId: instanceId.split('_')[1], plan_type: "open" },
+      });
+      if (subscription && subscription.webhookUrl) {
+        await webhookQueue.add("sendWebhook", {
+          url: subscription.webhookUrl ,
+          payload: {
+            phone : `+${phone}`,
+            message: body,
+            timestamp: new Date().toISOString(),
+          },
+        });
       }
-      const reply = meta.autoReply || 'Thanks — we will reply soon';
-      await msg.reply(reply);
     } catch (err) {
-      console.error('autoReply error', err);
+      console.error("autoReply error", err);
     }
-  };
 };
 
-export default AUTO_REPLY
+export default MAKE_WEBHOOK_CALL;

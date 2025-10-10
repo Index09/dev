@@ -14,6 +14,10 @@ import adminRoutes from './routes/admin.js';
 import instanceManager from './instanceManager.js';
 import cors from 'cors';
 
+import dotenv from 'dotenv';
+dotenv.config();
+
+
 const app = express();
 app.use(express.json());
 app.use(cors());
@@ -29,12 +33,15 @@ app.get( ['/dashboard', '/instances' , '/subscribe' , '/login' , '/register' , '
 });
 
 
+app.post('/test_hook' , async(req,res) =>{
+  console.log( 'weebhok test' , req.body)
+});
 
-// sync DB
+
+
 (async () => {
   try {
     await sequelize.authenticate();
-    // sync models (for production use migrations; sync is ok for prototype)
     await sequelize.sync();
     console.log('DB connected and synced');
   } catch (err) {

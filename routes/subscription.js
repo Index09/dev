@@ -9,43 +9,6 @@ import 'dotenv/config';
 const router = express.Router();
 
 
-router.post('/subscribe', authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const now = new Date();
-    const existing = await Subscription.findOne({
-      where: {
-        userId,
-        endAt: { [Op.gt]: now },
-        status: 'active'
-      },
-      order: [['endAt', 'DESC']]
-    });
-
-    if (existing) {
-      return res.status(400).json({
-        error: 'User already has an active subscription',
-        subscription: existing
-      });
-    }
-
-    const startAt = new Date();
-    const endAt = new Date(startAt);
-    endAt.setMonth(endAt.getMonth() + 1); // add 1 month
-    const sub = await Subscription.create({
-      userId,
-      startAt,
-      endAt,
-      status: 'active'
-    });
-    return res.json({ success: true, subscription: sub });
-  } catch (err) {
-    console.error('POST /subscribe error:', err);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
-
 
 router.get('/status', authMiddleware, async (req, res) => {
   try {
@@ -105,5 +68,46 @@ router.post('/cancel', authMiddleware, async (req, res) => {
   }
 });
 
+
+router.post('/set_webhook',authMiddleware ,async (req, res) => {
+  try {
+    const userId = req.user.id; 
+    const { webhookUrl } = req.body;
+
+    if (!webhookUrl) {
+      return res.status(400).json({ message: 'webhookUrl is required' });
+    }
+
+    
+    if (!isValidHttpsUrl(webhookUrl))
+      return res
+        .status(400)
+        .json({ message: 'Invalid webhook URL — must be HTTPS' });
+
+
+    const subscription = await Subscription.findOne({ userId });
+
+
+    subscription.webhookUrl = webhookUrl;
+    await subscription.save();
+
+    return res.json({
+      message: 'Webhook URL updated successfully',
+      webhookUrl: subscription.webhookUrl,
+    });
+  } catch (err) {
+    console.error('Update webhook error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+function isValidHttpsUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:';  
+  } catch (err) {
+    return false;
+  }
+}
 
 export default router

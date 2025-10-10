@@ -1,14 +1,14 @@
 import { Sequelize } from 'sequelize';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-// For ES modules __dirname equivalent
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import dotenv from 'dotenv';
+dotenv.config();
 
-const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: path.join(__dirname, 'whatsapp_service.sqlite'), // SQLite database file
+
+const user = process.env.DB_USER
+const password = process.env.DB_PASS
+const sequelize = new Sequelize('whatsapp_app',user, password, {
+  host: 'localhost',
+  dialect: 'mysql',
   logging: false,
   define: {
     timestamps: true,
@@ -20,5 +20,4 @@ const sequelize = new Sequelize({
     idle: 10000
   }
 });
-
 export default sequelize;

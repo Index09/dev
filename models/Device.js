@@ -26,7 +26,6 @@ const Device = sequelize.define(
     linkedNumber: {
       type: DataTypes.STRING,
       allowNull: true,
-      unique: true, // This enforces uniqueness across all devices
     },
     createdAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   },

@@ -6,25 +6,21 @@ import {
 } from "@whiskeysockets/baileys";
 import Qrcode from "qrcode";
 
-// 🚫 Disable ALL Baileys logging
 import pkg from "pino";
 const { pino } = pkg;
 
-const logger = pino({ level: "silent" }); // Complete silence
+const logger = pino({ level: "silent" });
 
 import fs from "fs-extra";
 import path from "path";
 
-import {  Op } from "sequelize";
-
+import { Op } from "sequelize";
 
 import Device from "./models/Device.js";
-import AUTO_REPLY from './handlers/autoReply.js';
+import MAKE_WEBHOOK_CALL from "./handlers/autoReply.js";
 
-
-
-const CONCURRENCY = 5; 
-const START_STAGGER_MS = 3000; 
+const CONCURRENCY = 5;
+const START_STAGGER_MS = 3000;
 const READY_TIMEOUT_MS = 30000;
 const MAX_RETRIES = 4;
 
@@ -52,8 +48,6 @@ class InstanceManager {
     this.clients.delete(instanceId);
     this.retryCounts.delete(instanceId);
   }
-
-
 
   bindCommonEvents(socket, instanceId, meta) {
     socket.ev.on("connection.update", async (update) => {
@@ -83,17 +77,24 @@ class InstanceManager {
         } else if (socket.state?.legacy?.user?.id) {
           phoneNumber = socket.state.legacy.user.id.split(":")[0];
         }
+
+        await Device.update(
+          { linkedNumber: phoneNumber },
+          { where: { instanceId } }
+        );
+
         if (phoneNumber) {
-          await Device.update(
-            { linkedNumber: phoneNumber },
-            { where: { instanceId } }
-          );
-          meta.linkedNumber = phoneNumber;
-          console.log(`[${instanceId}] Linked phone number: ${phoneNumber}`);
-        } else {
-          console.warn(
-            `[${instanceId}] Could not extract phone number from connection`
-          );
+          const devices = await Device.findAll({
+            where: { linkedNumber: phoneNumber },
+            order: [["createdAt", "ASC"]],
+          });
+          if (devices.length > 1) {
+            //Destory the Second Device beacuese only limited to use whatsapp number once
+            
+            await this.destroyInstance(devices[1].instanceId)
+            this.clients.delete(instanceId)
+            await devices[1].destroy();
+          } 
         }
       }
 
@@ -110,7 +111,7 @@ class InstanceManager {
         if (shouldReconnect) {
           meta.status = "disconnected";
           this.updateDeviceStatus(instanceId, "disconnected");
-        //  this.scheduleRetry(instanceId);
+          //  this.scheduleRetry(instanceId);
         } else {
           meta.status = "logged_out";
           this.updateDeviceStatus(instanceId, "logged_out");
@@ -124,13 +125,22 @@ class InstanceManager {
       }
     });
 
-    // Error handling
-    socket.ev.on("connection.update", (update) => {
-      if (update.error) {
-        console.error(`[${instanceId}] connection error:`, update.error);
+    socket.ev.on("messages.upsert", async (update) => {
+      try {
+        const messages = update.messages;
+        if (!messages || messages.length === 0) return;
+        for (const msg of messages) {
+          if (!msg.message || msg.key.fromMe) continue;
+          const remoteJid = msg.key.remoteJid;
+          const phone = remoteJid.replace("@s.whatsapp.net", "");
+          const body = msg.message?.conversation || null;
+
+          MAKE_WEBHOOK_CALL({ body, phone, instanceId });
+        }
+      } catch (err) {
+        console.error("❌ Error processing message:", err);
       }
     });
-
   }
 
   async updateDeviceStatus(instanceId, status) {
@@ -143,28 +153,38 @@ class InstanceManager {
   scheduleRetry(instanceId) {
     const attempts = (this.retryCounts.get(instanceId) || 0) + 1;
     if (attempts > MAX_RETRIES) {
-      console.warn(`[${instanceId}] reached max retries (${MAX_RETRIES}), giving up.`);
-      Device.update({ status: 'failed' }, { where: { instanceId } }).catch(console.error);
+      console.warn(
+        `[${instanceId}] reached max retries (${MAX_RETRIES}), giving up.`
+      );
+      Device.update({ status: "failed" }, { where: { instanceId } }).catch(
+        console.error
+      );
       return;
     }
     this.retryCounts.set(instanceId, attempts);
-    const delay = Math.min(60_000, Math.pow(2, attempts) * 1000) + Math.floor(Math.random() * 3000); // cap 60s + jitter
-    console.log(`[${instanceId}] scheduling retry #${attempts} in ${Math.round(delay/1000)}s`);
+    const delay =
+      Math.min(60_000, Math.pow(2, attempts) * 1000) +
+      Math.floor(Math.random() * 3000); // cap 60s + jitter
+    console.log(
+      `[${instanceId}] scheduling retry #${attempts} in ${Math.round(
+        delay / 1000
+      )}s`
+    );
     setTimeout(async () => {
       try {
         const rec = this.clients.get(instanceId);
         if (rec && rec.client) {
-          try { await rec.client.destroy(); } catch(e){}
+          try {
+            await rec.client.destroy();
+          } catch (e) {}
           this.clients.delete(instanceId);
         }
         await this._initSingle(instanceId);
       } catch (err) {
         console.error(`[${instanceId}] retry init failed:`, err.message || err);
-        
       }
     }, delay);
   }
-
 
   async _initSingle(instanceId) {
     if (this.clients.has(instanceId)) {
@@ -182,7 +202,7 @@ class InstanceManager {
 
     const meta = {
       id: instanceId,
-      autoReply: dbDevice?.meta?.autoReply || null,
+      autoReply: null,
       status: "initializing",
       lastActivity: Date.now(),
       createdAt: Date.now(),
@@ -197,11 +217,11 @@ class InstanceManager {
         auth: state,
         printQRInTerminal: false,
         logger: logger,
-        browser: Browsers.ubuntu("Chrome"), 
+        browser: Browsers.ubuntu("Chrome"),
         markOnlineOnConnect: true,
-        generateHighQualityLinkPreview: false, 
+        generateHighQualityLinkPreview: false,
         syncFullHistory: false,
-        defaultQueryTimeoutMs: 60000, 
+        defaultQueryTimeoutMs: 60000,
       });
       socket.ev.on("creds.update", saveCreds);
 
@@ -323,7 +343,7 @@ class InstanceManager {
         rec.socket.ws.close();
       }
 
-      this.clients.delete(instanceId);  
+      this.clients.delete(instanceId);
       const sessionDir = path.resolve(process.cwd(), "sessions", instanceId);
       await fs.remove(sessionDir).catch(() => {});
 
@@ -354,7 +374,6 @@ class InstanceManager {
       attributes: ["id", "instanceId", "status", "meta"],
     });
 
-
     const meta = await this._initSingle(instanceId);
 
     if (options && Object.keys(options).length > 0) {
@@ -377,9 +396,9 @@ class InstanceManager {
     if (!socket) throw new Error("Instance not found or not ready");
 
     try {
-     return await socket.sendMessage(jid, content, options);
-    }catch(error){
-      this._initSingle(instanceId)
+      return await socket.sendMessage(jid, content, options);
+    } catch (error) {
+      this._initSingle(instanceId);
     }
   }
 

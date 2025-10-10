@@ -12,10 +12,12 @@
   "license": "ISC",
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc.4",
+    "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.4.1",
+    "bullmq": "^5.61.0",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.2",
+    "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "fs-extra": "^11.3.2",
     "ioredis": "^5.8.1",
