@@ -6,7 +6,8 @@ yarn-error.log*
 
 sessions/
 /sessions
-
+/src/.env
 .env
+/.env
 data/
 /data
