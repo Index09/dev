@@ -90,33 +90,36 @@ class InstanceManager {
           });
           if (devices.length > 1) {
             //Destory the Second Device beacuese only limited to use whatsapp number once
-            
-            await this.destroyInstance(devices[1].instanceId)
-            this.clients.delete(instanceId)
+
+            await this.destroyInstance(devices[1].instanceId);
+            this.clients.delete(instanceId);
             await devices[1].destroy();
-          } 
+          }
         }
       }
 
-      if (connection === "close") {
-        const shouldReconnect =
-          lastDisconnect?.error?.output?.statusCode !==
-          DisconnectReason.loggedOut;
-        console.log(
-          `[${instanceId}] connection closed due to ${
-            lastDisconnect?.error?.message || "unknown reason"
-          }, reconnecting: ${shouldReconnect}`
-        );
+      if (connection === "close")
+        (update) => {
+          const { connection, lastDisconnect } = update;
+          if (connection === "close") {
+            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== 401; 
+            if (shouldReconnect) {
+              console.log("🔁 Reconnecting...");
+              this._initSingle(instanceId); 
+            } else {
+              console.log("🔒 Logged out — need to re-authenticate");
+            }
+          }
 
-        if (shouldReconnect) {
-          meta.status = "disconnected";
-          this.updateDeviceStatus(instanceId, "disconnected");
-          //  this.scheduleRetry(instanceId);
-        } else {
-          meta.status = "logged_out";
-          this.updateDeviceStatus(instanceId, "logged_out");
-        }
-      }
+          if (shouldReconnect) {
+            meta.status = "disconnected";
+            this.updateDeviceStatus(instanceId, "disconnected");
+            //  this.scheduleRetry(instanceId);
+          } else {
+            meta.status = "logged_out";
+            this.updateDeviceStatus(instanceId, "logged_out");
+          }
+        };
 
       if (connection === "connecting") {
         console.log(`[${instanceId}] connecting...`);
@@ -134,7 +137,7 @@ class InstanceManager {
           const remoteJid = msg.key.remoteJid;
           const phone = remoteJid.replace("@s.whatsapp.net", "");
           const body = msg.message?.conversation || null;
-        
+
           MAKE_WEBHOOK_CALL({ body, phone, instanceId });
         }
       } catch (err) {
@@ -217,8 +220,8 @@ class InstanceManager {
         auth: state,
         printQRInTerminal: false,
         logger: logger,
-        browser: Browsers.ubuntu("Chrome"),
-        markOnlineOnConnect: true,
+        browser: Browsers.macOS("Safari"),
+        markOnlineOnConnect: false,
         generateHighQualityLinkPreview: false,
         syncFullHistory: false,
         defaultQueryTimeoutMs: 60000,
