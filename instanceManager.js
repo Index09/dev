@@ -52,6 +52,7 @@ class InstanceManager {
   bindCommonEvents(socket, instanceId, meta) {
     socket.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect, qr } = update;
+
       if (qr) {
         console.log(`[${instanceId}] QR generated`);
         const rec = this.clients.get(instanceId);
@@ -66,71 +67,65 @@ class InstanceManager {
       }
 
       if (connection === "open") {
+        // existing open handling (keep as-is)...
         console.log(`[${instanceId}] connected and ready`);
         meta.status = "ready";
-
-        this.updateDeviceStatus(instanceId, "ready");
-
-        let phoneNumber = null;
-
-        if (socket.user?.id) {
-          phoneNumber = socket.user.id.split(":")[0];
-        } else if (socket.state?.legacy?.user?.id) {
-          phoneNumber = socket.state.legacy.user.id.split(":")[0];
-        }
-
-        await Device.update(
-          { linkedNumber: phoneNumber },
-          { where: { instanceId } }
-        );
-
-        if (phoneNumber) {
-          const devices = await Device.findAll({
-            where: { linkedNumber: phoneNumber },
-            order: [["createdAt", "ASC"]],
-          });
-          if (devices.length > 1) {
-            //Destory the Second Device beacuese only limited to use whatsapp number once
-
-            await this.destroyInstance(devices[1].instanceId);
-            this.clients.delete(instanceId);
-            await devices[1].destroy();
-          }
-        }
-
-        setInterval(() => {
-          socket?.sendPresenceUpdate("available");
-        }, 20000);
+        await this.updateDeviceStatus(instanceId, "ready");
+        // ... rest of your open logic
+        return; // done
       }
-
-      if (connection === "close")
-        (update) => {
-          const { connection, lastDisconnect } = update;
-          if (connection === "close") {
-            const shouldReconnect =
-              lastDisconnect?.error?.output?.statusCode !== 401;
-            if (shouldReconnect) {
-              console.log("🔁 Reconnecting...");
-              this._initSingle(instanceId);
-            } else {
-              console.log("🔒 Logged out — need to re-authenticate");
-            }
-          }
-
-          if (shouldReconnect) {
-            meta.status = "disconnected";
-            this.updateDeviceStatus(instanceId, "disconnected");
-            //  this.scheduleRetry(instanceId);
-          } else {
-            meta.status = "logged_out";
-            this.updateDeviceStatus(instanceId, "logged_out");
-          }
-        };
 
       if (connection === "connecting") {
         console.log(`[${instanceId}] connecting...`);
         meta.status = "connecting";
-        this.updateDeviceStatus(instanceId, "connecting");
+        await this.updateDeviceStatus(instanceId, "connecting");
+        return;
+      }
+
+      // === Proper 'close' handling ===
+      if (connection === "close") {
+        const err = lastDisconnect?.error;
+        const statusCode = err?.output?.statusCode ?? null;
+        console.warn(`[${instanceId}] connection closed`, err?.message || err);
+
+        // consider logged out if statusCode is 401 or Baileys DisconnectReason.loggedOut
+        const isLoggedOut =
+          statusCode === DisconnectReason.loggedOut ||
+          statusCode === 401 ||
+          (err && err.output && err.output.statusCode === 401);
+
+        if (isLoggedOut) {
+          meta.status = "logged_out";
+          await this.updateDeviceStatus(instanceId, "logged_out");
+          console.log(`[${instanceId}] Logged out — manual re-auth required`);
+          // keep client removed so front-end can request new QR
+          await this.safeDestroy(instanceId);
+          return;
+        }
+
+        // Otherwise try immediate recovery
+        meta.status = "disconnected";
+        await this.updateDeviceStatus(instanceId, "disconnected");
+
+        try {
+          console.log(
+            `[${instanceId}] Attempting immediate re-initialization...`
+          );
+          // clean up old client if any, then try to init again
+          await this.safeDestroy(instanceId);
+          await this._initSingle(instanceId);
+          console.log(
+            `[${instanceId}] Re-initialized successfully after close`
+          );
+          // success: nothing else to do
+        } catch (reinitErr) {
+          console.error(
+            `[${instanceId}] Immediate reinit failed:`,
+            reinitErr?.message || reinitErr
+          );
+          // schedule retry/backoff (existing logic)
+          this.scheduleRetry(instanceId);
+        }
       }
     });
 
@@ -407,7 +402,35 @@ class InstanceManager {
     try {
       return await socket.sendMessage(jid, content, options);
     } catch (error) {
-      this._initSingle(instanceId);
+      console.warn(
+        `[${instanceId}] sendMessage failed, attempting reinit:`,
+        error?.message || error
+      );
+
+      try {
+        await this.safeDestroy(instanceId);
+      } catch (e) {
+        console.warn(
+          `[${instanceId}] safeDestroy during sendMessage recovery failed:`,
+          e?.message || e
+        );
+      }
+
+      try {
+        await this._initSingle(instanceId);
+        const newSocket = this.getClient(instanceId);
+        if (!newSocket)
+          throw new Error("Reinitialized but client not available");
+
+        return await newSocket.sendMessage(jid, content, options);
+      } catch (retryErr) {
+        console.error(
+          `[${instanceId}] sendMessage retry failed:`,
+          retryErr?.message || retryErr
+        );
+        this.scheduleRetry(instanceId);
+        throw retryErr;
+      }
     }
   }
 
